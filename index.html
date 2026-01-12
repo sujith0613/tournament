@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Neville's Remembrall</title>
+    <style>
+        /* ----- Global Styles ----- */
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #0a0a0a, #1a1a1a);
+            color: #eee;
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 2.8rem;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #4ade80, 0 0 20px #4ade80;
+            text-align: center;
+        }
+
+        /* ----- Box Styles ----- */
+        .box {
+            background: #1b1b1b;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 0 20px rgba(0, 255, 128, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 30px rgba(0, 255, 128, 0.2);
+        }
+
+        .box h2 {
+            margin-bottom: 15px;
+            color: #4ade80;
+            text-shadow: 0 0 5px #4ade80;
+        }
+
+        /* ----- Input & Button ----- */
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background: #111;
+            color: #eee;
+            font-size: 1rem;
+            transition: border 0.3s, box-shadow 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #4ade80;
+            box-shadow: 0 0 10px #4ade80;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 10px 5px 0 0;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 10px #4ade80;
+        }
+
+        button.clear {
+            background: #f87171;
+            color: #111;
+        }
+
+        #status {
+            font-weight: bold;
+            margin-top: 10px;
+            min-height: 24px;
+            transition: opacity 0.5s;
+        }
+
+        /* ----- Proclamation Scroll ----- */
+        #list {
+            list-style: none;
+            margin-top: 10px;
+            max-height: 250px;
+            overflow-y: auto;
+            padding: 0 10px;
+            border-left: 2px solid #4ade80;
+            border-right: 2px solid #4ade80;
+            border-radius: 6px;
+            background: linear-gradient(to bottom, #111 0%, #222 100%);
+        }
+
+        #list li {
+            padding: 8px;
+            border-bottom: 1px solid #333;
+            color: #eee;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        #list li:hover {
+            background: rgba(74, 222, 128, 0.1);
+        }
+
+        /* Scrollbar styling */
+        #list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #list::-webkit-scrollbar-thumb {
+            background-color: #4ade80;
+            border-radius: 4px;
+        }
+
+        #list::-webkit-scrollbar-track {
+            background: #111;
+        }
+    </style>
+</head>
+<body>
+
+<h1>🔐 Neville’s Remembrall Vault</h1>
+
+<!-- Add Password Box -->
+<div class="box">
+    <h2>Add Password</h2>
+    <input id="location" placeholder="Location">
+    <input id="hint" placeholder="Hint">
+    <input id="password" placeholder="Password">
+    <button onclick="store()">Store</button>
+    <p id="status"></p>
+</div>
+
+<!-- Proclamation Box -->
+<div class="box">
+    <h2>📜 Proclamation</h2>
+    <button onclick="loadHints()">Refresh</button>
+    <button class="clear" onclick="clearAll()">Clear All Passwords</button>
+    <ul id="list"></ul>
+</div>
+
+<script>
+const status = document.getElementById("status");
+
+async function store() {
+    const loc = document.getElementById("location").value.trim();
+    const h = document.getElementById("hint").value.trim();
+    const p = document.getElementById("password").value.trim();
+
+    if (!loc || !h || !p) {
+        status.innerText = "All fields required";
+        status.style.color = "#f87171";
+        return;
+    }
+
+    try {
+        const res = await fetch("/add-password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ location: loc, hint: h, password: p })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            status.innerText = data.message;
+            status.style.color = "#4ade80";
+            document.getElementById("location").value = "";
+            document.getElementById("hint").value = "";
+            document.getElementById("password").value = "";
+            loadHints();
+        } else {
+            status.innerText = data.detail || "Failed to store password";
+            status.style.color = "#f87171";
+        }
+    } catch (e) {
+        status.innerText = "Network error";
+        status.style.color = "#f87171";
+    }
+}
+
+async function loadHints() {
+    try {
+        const res = await fetch("/get-hint-locations");
+        const data = await res.json();
+        const list = document.getElementById("list");
+        list.innerHTML = "";
+        data.data.forEach(item => {
+            const li = document.createElement("li");
+            li.innerText = `${item.location} → ${item.hint}`;
+            list.appendChild(li);
+        });
+    } catch (e) {
+        status.innerText = "Failed to load hints";
+        status.style.color = "#f87171";
+    }
+}
+
+async function clearAll() {
+    if (!confirm("Are you sure you want to delete all passwords?")) return;
+    try {
+        const res = await fetch("/clear-vault", { method: "DELETE" });
+        const data = await res.json();
+        alert(data.message);
+        loadHints();
+    } catch (e) {
+        alert("Failed to clear vault");
+    }
+}
+
+loadHints();
+</script>
+
+</body>
+</html>
